@@ -1,0 +1,21 @@
+# 决策层 phase_id ↔ GD32 固件相位编号 的映射。
+#
+# 左列 = 决策层 phase_id（见 zhengyuan docs/decision-algorithm-design.md 的相位分组）
+# 右列 = 固件相位编号（1..4，与 firmware/app/config.h 的 PHASE_N/E/S/W 一致）
+#
+# 本影子运行采用「模式 A（minor_only，四向皆支路）」：P_N / P_E / P_S / P_W，
+# 每向直行+左转合并。固件编号固定为 1..4，不可与特殊态编号冲突。
+phases:
+  P_N: 1
+  P_E: 2
+  P_S: 3
+  P_W: 4
+
+# 特殊状态（固件编号固定，见 firmware/app/config.h）。null = 不支持该态。
+special:
+  all_red: 0x00
+  flash: 0xFE
+  off: 0xFF
+
+# 信号机地址（固定 0x01；宿主机地址为 0x00）。
+controller_address: 0x01

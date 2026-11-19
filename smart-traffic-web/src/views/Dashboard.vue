@@ -40,15 +40,15 @@
           <div class="telemetry-grid">
             <div class="tele-item active-phase">
               <div class="tele-title">当前通行相位</div>
-              <div class="tele-value glow-green">{{ twinState.current_phase_id || 'P_W' }}</div>
-              <div class="tele-desc">{{ getPhaseDesc(twinState.current_phase_id) }}</div>
+              <div class="tele-value glow-green">{{ twinState.clearing_phase || twinState.current_phase_id || '—' }}</div>
+              <div class="tele-desc">{{ signalDescription }}</div>
             </div>
 
             <div class="tele-item">
               <div class="tele-title">控制运行模式</div>
               <div class="tele-tag-box">
                 <el-tag :type="getModeTagType(twinState.mode)" effect="dark" size="large">
-                  {{ (twinState.mode || 'NORMAL').toUpperCase() }}
+                  {{ (twinState.mode || 'unknown').toUpperCase() }}
                 </el-tag>
               </div>
               <div class="tele-desc">边缘自适应算法</div>
@@ -58,7 +58,7 @@
               <div class="tele-title">降级容灾状态</div>
               <div class="tele-tag-box">
                 <el-tag :type="twinState.degradation === 'normal' ? 'success' : 'warning'" effect="plain">
-                  {{ twinState.degradation === 'normal' ? '正常 (NORMAL)' : '降级 (PARTIAL)' }}
+                  {{ twinState.degradation === 'normal' ? '正常 (NORMAL)' : (twinState.degradation ? '降级 (PARTIAL)' : '待同步') }}
                 </el-tag>
               </div>
               <div class="tele-desc">无缝安全兜底</div>
@@ -66,7 +66,7 @@
 
             <div class="tele-item">
               <div class="tele-title">边缘决策 Tick</div>
-              <div class="tele-value tick-num">#{{ twinState.tick_id || '2724' }}</div>
+              <div class="tele-value tick-num">#{{ twinState.tick_id ?? '—' }}</div>
               <div class="tele-desc">10Hz 控制节拍</div>
             </div>
           </div>
@@ -112,7 +112,7 @@
                 <span>数字孪生路口沙盘 ({{ selectedJunction }})</span>
               </div>
               <div class="phase-banner">
-                当前放行：<strong class="glow-text">{{ getPhaseDesc(twinState.current_phase_id) }}</strong>
+                灯态：<strong class="glow-text">{{ signalDescription }}</strong>
               </div>
             </div>
           </template>
@@ -165,14 +165,14 @@
                 <div class="lane-divider-v"></div>
                 <div class="zebra-stripe zebra-h top-zebra"></div>
                 <!-- 南北绿灯时的动态流动车流粒子 -->
-                <div v-if="isNorthSouthGreen" class="traffic-particle particle-ns particle-ns-1"></div>
-                <div v-if="isNorthSouthGreen" class="traffic-particle particle-sn particle-sn-1"></div>
+                <div v-if="getLightColor('north') === 'green'" class="traffic-particle particle-ns particle-ns-1"></div>
               </div>
 
               <!-- 南路面 & 斑马线 -->
               <div class="road-arm road-south">
                 <div class="lane-divider-v"></div>
                 <div class="zebra-stripe zebra-h bottom-zebra"></div>
+                <div v-if="getLightColor('south') === 'green'" class="traffic-particle particle-sn particle-sn-1"></div>
               </div>
 
               <!-- 西路面 & 斑马线 -->
@@ -180,14 +180,14 @@
                 <div class="lane-divider-h"></div>
                 <div class="zebra-stripe zebra-v left-zebra"></div>
                 <!-- 东西绿灯时的动态流动车流粒子 -->
-                <div v-if="isEastWestGreen" class="traffic-particle particle-we particle-we-1"></div>
-                <div v-if="isEastWestGreen" class="traffic-particle particle-ew particle-ew-1"></div>
+                <div v-if="getLightColor('west') === 'green'" class="traffic-particle particle-we particle-we-1"></div>
               </div>
 
               <!-- 东路面 & 斑马线 -->
               <div class="road-arm road-east">
                 <div class="lane-divider-h"></div>
                 <div class="zebra-stripe zebra-v right-zebra"></div>
+                <div v-if="getLightColor('east') === 'green'" class="traffic-particle particle-ew particle-ew-1"></div>
               </div>
 
               <!-- 交叉口核心中央环岛 -->
@@ -195,7 +195,7 @@
                 <div class="radar-scan"></div>
                 <div class="center-content">
                   <div class="junction-tag">{{ selectedJunction }}</div>
-                  <div class="junction-state-tag">{{ twinState.mode?.toUpperCase() || 'NORMAL' }}</div>
+                  <div class="junction-state-tag">{{ twinState.mode?.toUpperCase() || 'unknown' }}</div>
                 </div>
               </div>
             </div>
@@ -240,26 +240,26 @@
           <template #header>
             <div class="card-header">
               <span class="icon">📈</span>
-              <span>进口道排队长度实时感知</span>
+              <span>进口道排队示意（非实测）</span>
             </div>
           </template>
 
           <div class="queue-list">
             <div class="queue-row">
               <div class="q-label">北进口 (直行)</div>
-              <el-progress :percentage="isNorthSouthGreen ? 25 : 78" :status="isNorthSouthGreen ? 'success' : 'warning'" :stroke-width="10" />
+              <el-progress :percentage="getLightColor('north') === 'green' ? 25 : 78" :status="getLightColor('north') === 'green' ? 'success' : 'warning'" :stroke-width="10" />
             </div>
             <div class="queue-row">
               <div class="q-label">南进口 (直行)</div>
-              <el-progress :percentage="isNorthSouthGreen ? 30 : 82" :status="isNorthSouthGreen ? 'success' : 'exception'" :stroke-width="10" />
+              <el-progress :percentage="getLightColor('south') === 'green' ? 30 : 82" :status="getLightColor('south') === 'green' ? 'success' : 'exception'" :stroke-width="10" />
             </div>
             <div class="queue-row">
               <div class="q-label">东进口 (左转/直行)</div>
-              <el-progress :percentage="isEastWestGreen ? 20 : 65" :status="isEastWestGreen ? 'success' : 'warning'" :stroke-width="10" />
+              <el-progress :percentage="getLightColor('east') === 'green' ? 20 : 65" :status="getLightColor('east') === 'green' ? 'success' : 'warning'" :stroke-width="10" />
             </div>
             <div class="queue-row">
               <div class="q-label">西进口 (左转/直行)</div>
-              <el-progress :percentage="isEastWestGreen ? 15 : 55" :status="isEastWestGreen ? 'success' : 'warning'" :stroke-width="10" />
+              <el-progress :percentage="getLightColor('west') === 'green' ? 15 : 55" :status="getLightColor('west') === 'green' ? 'success' : 'warning'" :stroke-width="10" />
             </div>
           </div>
         </el-card>
@@ -283,19 +283,7 @@ const junctionList = ref([
   { id: 'INT_002', name: 'INT_002 (建设大道与科技路)' }
 ])
 
-const twinState = reactive<RealtimeState>({
-  junction_id: 'mini_1',
-  current_phase_id: 'P_W',
-  mode: 'normal',
-  degradation: 'normal',
-  tick_id: '2724',
-  signal_colors: {
-    north_through: 'red',
-    south_through: 'red',
-    east_through: 'green',
-    west_through: 'green'
-  }
-})
+const twinState = ref<Partial<RealtimeState>>({})
 
 const trafficMetrics = reactive({
   vehicleCount: 152,
@@ -306,49 +294,19 @@ const trafficMetrics = reactive({
 
 const alerts = ref<any[]>([])
 
-// 计算当前是否为南北绿灯
-const isNorthSouthGreen = computed(() => {
-  return getLightColor('north') === 'green' || getLightColor('south') === 'green'
+const directions = ['north', 'east', 'south', 'west'] as const
+type Direction = typeof directions[number]
+const names = { north: '北', east: '东', south: '南', west: '西' }
+const getLightColor = (direction: Direction) =>
+  twinState.value.signal_colors?.[`${direction}_through`] ?? 'unknown'
+const signalDescription = computed(() => {
+  for (const direction of directions) {
+    const color = getLightColor(direction)
+    if (color === 'green') return `${names[direction]}进口绿灯放行`
+    if (color === 'yellow') return `${names[direction]}进口黄灯清空`
+  }
+  return directions.every(d => getLightColor(d) === 'red') ? '四向全红' : '灯态未知 · 等待有效遥测'
 })
-
-// 计算当前是否为东西绿灯
-const isEastWestGreen = computed(() => {
-  return getLightColor('east') === 'green' || getLightColor('west') === 'green'
-})
-
-// 获取四向红绿灯状态
-const getLightColor = (direction: 'north' | 'south' | 'east' | 'west') => {
-  const mode = (twinState.mode || 'normal').toLowerCase()
-  if (mode === 'all_red') return 'red'
-  if (mode === 'clearance') return 'yellow'
-
-  const colors = twinState.signal_colors as any
-  if (colors && colors[direction]) {
-    return colors[direction]
-  }
-  if (colors && colors[`${direction}_through`]) {
-    return colors[`${direction}_through`]
-  }
-
-  // 根据当前相位回退推算
-  const phase = (twinState.current_phase_id || 'P_W').toUpperCase()
-  if (phase.includes('N') || phase.includes('S')) {
-    return (direction === 'north' || direction === 'south') ? 'green' : 'red'
-  } else {
-    return (direction === 'east' || direction === 'west') ? 'green' : 'red'
-  }
-}
-
-const getPhaseDesc = (phaseId: string = '') => {
-  const p = (phaseId || '').toUpperCase()
-  if (p.includes('W') || p.includes('E') || p === '2' || p === '3') {
-    return '东西主干道放行 (East-West Green)'
-  }
-  if (p.includes('N') || p.includes('S') || p === '0' || p === '1') {
-    return '南北主干道放行 (North-South Green)'
-  }
-  return '全向相位协调中'
-}
 
 const getModeTagType = (mode: string = '') => {
   const m = mode.toLowerCase()
@@ -363,31 +321,45 @@ const updateClock = () => {
 }
 
 // 核心拉取函数：安全健壮解析
+let generation = 0
+let requestId = 0
+let applied = 0
 const fetchAllData = async () => {
+  const gen = generation, id = ++requestId, junction = selectedJunction.value
   try {
-    const resState: any = await trafficApi.getJunctionRealtimeState(selectedJunction.value)
+    const resState: any = await trafficApi.getJunctionRealtimeState(junction)
+    if (gen !== generation || id < applied) return
+    applied = id
     const stateData = resState?.data?.data || resState?.data || resState
     if (stateData && typeof stateData === 'object') {
-      Object.assign(twinState, stateData)
+      twinState.value = stateData.junction_id === junction ? stateData : {}
     }
 
-    const resMetrics: any = await trafficApi.getRealtimeData(selectedJunction.value)
+    const resMetrics: any = await trafficApi.getRealtimeData(junction)
+    if (gen !== generation) return
     const metricData = resMetrics?.data?.data || resMetrics?.data || resMetrics
     if (metricData && typeof metricData === 'object') {
       Object.assign(trafficMetrics, metricData)
     }
 
-    const resAlerts: any = await trafficApi.getAlerts(selectedJunction.value)
+    const resAlerts: any = await trafficApi.getAlerts(junction)
+    if (gen !== generation) return
     const alertList = resAlerts?.data?.data || resAlerts?.data || resAlerts
     if (Array.isArray(alertList)) {
       alerts.value = alertList
     }
   } catch (error) {
+    if (gen === generation && id > applied) {
+      applied = id
+      twinState.value = {}
+    }
     console.error('拉取数字孪生数据异常:', error)
   }
 }
 
 const handleJunctionChange = () => {
+  generation++
+  twinState.value = {}
   fetchAllData()
 }
 
@@ -400,6 +372,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  generation++
   if (timer) clearInterval(timer)
   if (clockTimer) clearInterval(clockTimer)
 })

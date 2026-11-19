@@ -2,6 +2,7 @@ package com.smart.intersection.ingestsvc.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import com.smart.intersection.ingestsvc.mqtt.SignalDisplay;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -69,7 +70,10 @@ public class RealtimeController {
         Map<String, Object> result = new HashMap<>();
         if (jsonState != null && !jsonState.isEmpty()) {
             try {
-                Map<?, ?> stateMap = objectMapper.readValue(jsonState, Map.class);
+                Map<String, Object> stateMap = objectMapper.readValue(jsonState, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                // Reproject even cached pre-upgrade snapshots (which may contain paired greens).
+                String phase = Objects.toString(stateMap.getOrDefault("clearing_phase", stateMap.get("current_phase_id")), "");
+                stateMap.put("signal_colors", SignalDisplay.colors(phase, Objects.toString(stateMap.get("mode"), "")));
                 result.put("code", 200);
                 result.put("data", stateMap);
                 return ResponseEntity.ok(result);
@@ -78,16 +82,9 @@ public class RealtimeController {
 
         Map<String, Object> defaultData = new HashMap<>();
         defaultData.put("junction_id", junctionId);
-        defaultData.put("mode", "normal");
-        defaultData.put("degradation", "normal");
-        defaultData.put("current_phase_id", "P_S");
-
-        Map<String, String> colors = new HashMap<>();
-        colors.put("north_through", "green");
-        colors.put("south_through", "green");
-        colors.put("east_through", "red");
-        colors.put("west_through", "red");
-        defaultData.put("signal_colors", colors);
+        defaultData.put("mode", "unknown");
+        defaultData.put("current_phase_id", "");
+        defaultData.put("signal_colors", SignalDisplay.colors(null, null));
 
         result.put("code", 200);
         result.put("data", defaultData);

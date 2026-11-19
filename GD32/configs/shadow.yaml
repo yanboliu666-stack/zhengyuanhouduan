@@ -1,0 +1,73 @@
+# 影子运行配置（本地临时控制接口层）。
+#
+# 这是宿主机（RK3588 / Linux PC）跑 GD32 影子运行主循环的入口配置。
+# 决策层算法/权重/阈值等全部来自 decision_config 指向的那份 YAML（由你维护），
+# 本文件只用 signal_phases 覆盖「相位配时」（必须与 GD32 固件一致的那一块）。
+# 因此：以后调决策权重、改算法参数，只需改 decision_config，不用再改本接口层。
+
+# 决策层配置文件路径（相对 GD32 目录；指向 zhengyuan 的配置，你调参就改它）。
+decision_config: ../zhengyuan/configs/default.yaml
+
+# 相位配时（必须与 GD32 固件 config.h 一致：min/max/yellow/all_red）。
+# movement_ids 由决策层布局自动派生，无需在此写。
+signal_phases:
+  P_N: {min_green_s: 12.0, max_green_s: 80.0, yellow_s: 3.0, all_red_s: 0.5}
+  P_E: {min_green_s: 12.0, max_green_s: 80.0, yellow_s: 3.0, all_red_s: 0.5}
+  P_S: {min_green_s: 12.0, max_green_s: 80.0, yellow_s: 3.0, all_red_s: 0.5}
+  P_W: {min_green_s: 12.0, max_green_s: 80.0, yellow_s: 3.0, all_red_s: 0.5}
+
+# 路口标识（日志用）。
+junction_id: mini_1
+
+# 控制回路周期（秒）。2 Hz。感知层按 ≥2 Hz 写帧。
+tick_period_s: 0.5
+
+# 感知层写入的 JSON 快照（格式见 zhengyuan docs/perception-interface.md §8）。
+# 演示可用 scripts/simulate_perception.py 生成。
+perception:
+  input_path: /tmp/gd32-traffic/perception.json
+
+# 主循环把 GD32 回读的当前绿灯相位写到此文件，供闭环合成感知源读取（绿灯方向驶离）。
+signal_state_path: /tmp/gd32-traffic/signal_state.json
+
+# GD32 微型信号机链路（软请求：只发相位指示）。
+link:
+  # 传输：serial | null。null = 离线冒烟，不接真机。
+  transport:
+    type: serial
+    serial:
+      port: /dev/ttyACM0           # GD32 板上调试器的虚拟串口（引到 USART0 PA9/PA10）
+      baudrate: 115200             # 与固件 USART0 一致（8N1）
+  # 决策层相位 → 固件相位编号 的映射。
+  phase_mapping: host/phase_mapping.yaml
+  heartbeat:
+    interval_s: 1.0
+    timeout_s: 0.5
+    max_missed: 3
+
+# 指挥中心接管/摘除（占位：命令文件，跨进程方式待定）。
+control_room:
+  command_path: null
+
+# 启动序列结束后选定的首个绿灯相位（决策层不提议首相位）。
+initial_phase: P_N
+
+# 云端上报（复用 zhengyuan structured_log；契约见 docs/cloud-integration-shadow.md）。
+# type: null 或省略 = 不上云；type: mqtt = 走 MQTT。
+cloud:
+  type: mqtt
+  host: 192.168.0.109
+  port: 1883
+  username: admin
+  password: publicpassword
+  tls: false
+  qos: 1
+  topic_prefix: traffic-control
+  keepalive_s: 60
+  client_id: traffic-shadow-mini_1
+
+# 本地结构化日志（逐 tick JSONL 落盘，事实源 + RL 预留）。
+logging:
+  directory: /tmp/gd32-traffic/logs
+  retention_days: 1
+  black_box_ticks: 120

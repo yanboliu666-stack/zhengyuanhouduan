@@ -15,6 +15,7 @@ api.interceptors.request.use((config) => {
 
 export interface RealtimeState {
   junction_id: string
+  clearing_phase?: string
   current_phase_id: string
   mode: string
   degradation: string

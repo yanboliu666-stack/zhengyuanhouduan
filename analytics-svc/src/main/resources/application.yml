@@ -1,0 +1,24 @@
+server:
+  port: 8096
+
+spring:
+  application:
+    name: analytics-svc
+  datasource:
+    driver-class-name: com.taosdata.jdbc.rs.RestfulDriver
+    url: jdbc:TAOS-RS://localhost:6041/smart_traffic?user=root&password=taosdata
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: redis123
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'

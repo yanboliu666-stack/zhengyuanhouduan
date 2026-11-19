@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL 业务数据库
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    environment:
+      POSTGRES_USER: smart
+      POSTGRES_PASSWORD: smart123
+      POSTGRES_DB: smart_intersection
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - smart-net
+    restart: always
+
+  # 2. Redis 缓存 (固定密码 redis123)
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: redis-server --requirepass redis123 --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - smart-net
+    restart: always
+
+  # 3. Nacos 注册/配置中心
+  nacos:
+    image: nacos/nacos-server:v2.3.1
+    container_name: nacos
+    environment:
+      - MODE=standalone
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    networks:
+      - smart-net
+    restart: always
+
+  # 4. Zookeeper (Kafka 依赖)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - smart-net
+    restart: always
+
+  # 5. Kafka 消息队列
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - smart-net
+    restart: always
+
+  # 6. EMQX (MQTT Broker，边缘设备接入)
+  emqx:
+    image: emqx/emqx:5.5.0
+    container_name: emqx
+    ports:
+      - "1883:1883"    # MQTT 协议端口
+      - "8083:8083"    # WebSocket 端口
+      - "18083:18083"  # 管理后台端口
+    environment:
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: admin123
+    networks:
+      - smart-net
+    restart: always
+
+  # 7. TDengine 时序数据库 (车道流量数据存储)
+  tdengine:
+    image: tdengine/tdengine:3.2.3.0
+    container_name: tdengine
+    ports:
+      - "6030:6030"
+      - "6041:6041"    # RESTful API 端口
+    volumes:
+      - td-data:/var/lib/taos
+    networks:
+      - smart-net
+    restart: always
+
+volumes:
+  pg-data:
+  redis-data:
+  td-data:
+
+networks:
+  smart-net:
+    driver: bridge

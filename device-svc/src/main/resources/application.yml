@@ -1,0 +1,24 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: device-svc
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+  datasource:
+    url: jdbc:postgresql://localhost:5432/smart_intersection
+    username: smart
+    password: smart123
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: redis123
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true

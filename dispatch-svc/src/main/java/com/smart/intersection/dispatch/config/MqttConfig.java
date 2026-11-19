@@ -1,0 +1,29 @@
+package com.smart.intersection.dispatch.config;
+
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class MqttConfig {
+
+    @Value("${mqtt.broker}")
+    private String broker;
+
+    @Value("${mqtt.client-id}")
+    private String clientId;
+
+    @Bean
+    public MqttClient mqttClient() throws Exception {
+        MqttClient client = new MqttClient(broker, clientId + "_" + System.currentTimeMillis(), new MemoryPersistence());
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setCleanSession(true);
+        options.setAutomaticReconnect(true);
+        options.setConnectionTimeout(10);
+        client.connect(options);
+        return client;
+    }
+}

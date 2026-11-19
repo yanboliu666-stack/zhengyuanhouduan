@@ -1,0 +1,33 @@
+server:
+  port: 8091
+
+spring:
+  application:
+    name: auth-svc
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+  datasource:
+    # 显式使用 127.0.0.1 避免 IPv6 解析错误，确保数据库名是 smart_intersection
+    url: jdbc:postgresql://127.0.0.1:5432/smart_intersection?stringtype=unspecified
+    username: smart
+    password: smart123
+    driver-class-name: org.postgresql.Driver
+
+  # 【关键补全】权限系统必须配置 Redis
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: redis123
+      timeout: 5000ms
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  mapper-locations: classpath*:/mapper/**/*.xml
+
+logging:
+  level:
+    com.smart.intersection: debug

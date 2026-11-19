@@ -1,0 +1,44 @@
+server:
+  port: 8093
+
+spring:
+  application:
+    name: ingest-svc
+  datasource:
+    url: jdbc:postgresql://localhost:5432/smart_intersection
+    username: smart
+    password: smart123
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: redis123
+      timeout: 5000ms
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ingest-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+  # ==================== 边缘端契约 MQTT 订阅配置 ====================
+  mqtt:
+    url: tcp://127.0.0.1:1883
+    username: ""
+    password: ""
+    client-id: cloud-ingest-svc
+    topics:
+      - "traffic-control/+/event/#"
+      - "traffic-control/+/alarm"
+
+tdengine:
+  rest-url: http://localhost:6041/rest/sql
+  username: root
+  password: taosdata
+  database: smart_traffic

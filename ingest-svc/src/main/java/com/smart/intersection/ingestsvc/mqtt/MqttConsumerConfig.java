@@ -92,6 +92,7 @@ public class MqttConsumerConfig {
                 String existingStr = redisTemplate.opsForValue().get(stateKey);
                 ObjectNode stateNode = existingStr != null ? (ObjectNode) objectMapper.readTree(existingStr) : objectMapper.createObjectNode();
 
+                EdgeFeed.accept(stateNode, "event".equals(msgType) ? subType : msgType, root, System.currentTimeMillis());
                 stateNode.put("junction_id", junctionId);
                 stateNode.put("tick_id", tickId);
                 stateNode.put("last_updated", System.currentTimeMillis());
@@ -103,6 +104,9 @@ public class MqttConsumerConfig {
                     stateNode.put("latest_alarm", root.has("alarm_type") ? root.get("alarm_type").asText() : "warning");
                 } else if ("event".equals(msgType)) {
                     if ("traffic_state".equals(subType)) {
+                        // Keep the previous dashboard fields for mixed-version clients.
+                        stateNode.set("board_frame", root.path("board_frame").isObject() ? root.get("board_frame") : objectMapper.nullNode());
+                        stateNode.put("traffic_ts", root.path("ts_wall").asDouble(0));
                         // A traffic_state reports the current phase; decision_change.to_phase is only a proposal.
                         String oldPhase = stateNode.path("current_phase_id").asText("");
                         String oldMode = stateNode.path("mode").asText("");

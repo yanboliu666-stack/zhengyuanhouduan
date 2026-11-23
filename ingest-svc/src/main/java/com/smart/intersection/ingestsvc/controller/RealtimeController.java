@@ -22,6 +22,10 @@ import java.util.*;
 @RequestMapping("/api/v1")
 public class RealtimeController {
 
+    @Value("${panan.junction-id:mini_1}") private String siteJunction;
+    @Value("${panan.arm-binding:P_N,P_E,P_S,P_W}") private String armBinding;
+    @Value("${panan.binding-confirmed:false}") private boolean bindingConfirmed;
+
     @Autowired
     private StringRedisTemplate redisTemplate;
 
@@ -71,6 +75,7 @@ public class RealtimeController {
         if (jsonState != null && !jsonState.isEmpty()) {
             try {
                 Map<String, Object> stateMap = objectMapper.readValue(jsonState, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                PananSite.attach(stateMap, junctionId, siteJunction, armBinding, bindingConfirmed, System.currentTimeMillis());
                 // Reproject even cached pre-upgrade snapshots (which may contain paired greens).
                 String phase = Objects.toString(stateMap.getOrDefault("clearing_phase", stateMap.get("current_phase_id")), "");
                 stateMap.put("signal_colors", SignalDisplay.colors(phase, Objects.toString(stateMap.get("mode"), "")));
@@ -87,7 +92,7 @@ public class RealtimeController {
         defaultData.put("signal_colors", SignalDisplay.colors(null, null));
 
         result.put("code", 200);
-        result.put("data", defaultData);
+        result.put("data", PananSite.attach(defaultData, junctionId, siteJunction, armBinding, bindingConfirmed, System.currentTimeMillis()));
         return ResponseEntity.ok(result);
     }
 

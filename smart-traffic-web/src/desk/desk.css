@@ -1,0 +1,1013 @@
+.desk {
+  --ink: #202240;
+  --muted: #666c83;
+  --line: #e3e5ef;
+  --accent: #6751dc;
+  --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  display: flex;
+  min-height: 100vh;
+  background: #f4f5fa;
+  color: var(--ink);
+  font:
+    14px/1.48 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+}
+.desk * {
+  box-sizing: border-box;
+}
+.desk button,
+.desk select {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  padding: 7px 10px;
+}
+.desk button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.desk button:hover,
+.desk select:hover {
+  border-color: #a497e5;
+}
+.desk button:focus-visible,
+.desk select:focus-visible {
+  outline: 3px solid #a89af9;
+  outline-offset: 2px;
+}
+.desk button svg,
+.top svg,
+.tile svg,
+.kicker svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+.desk i,
+.desk em {
+  font-style: normal;
+}
+.rail {
+  width: 190px;
+  flex: 0 0 190px;
+  background: linear-gradient(152deg, #202143, #171a35 56%, #202044);
+  color: #e7e7f8;
+  padding: 25px 15px 18px;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 2px 8px 44px;
+}
+.brand svg {
+  width: 41px;
+  height: 41px;
+}
+.brand b {
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  line-height: 1.18;
+}
+.brand small,
+.railnav label,
+.railgraph b,
+.overline,
+.cardhead small,
+.kicker,
+.node,
+.clock,
+.event time,
+.stamp,
+.letter,
+footer,
+.righttag,
+.phaseid code {
+  font-family: var(--mono);
+}
+.brand small {
+  display: block;
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: #c3bde9;
+  margin-top: 3px;
+}
+.railnav label {
+  display: block;
+  letter-spacing: 0.15em;
+  color: #aaa6c6;
+  font-size: 9px;
+  margin: 0 12px 12px;
+}
+.railnav button,
+.railbottom button {
+  border: 0;
+  width: 100%;
+  justify-content: flex-start;
+  background: none;
+  color: #c2c1d9;
+  gap: 12px;
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.railnav .active {
+  background: #484075;
+  color: #fff;
+  box-shadow: inset 3px 0 0 #ac98ff;
+}
+.railnav button:hover,
+.railbottom button:hover {
+  background: #343451;
+}
+.railbottom {
+  margin-top: auto;
+}
+.railgraph {
+  border: 1px solid #454264;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(120deg, #353151, #292643);
+  padding: 0 12px 13px;
+  margin: 0 4px 13px;
+}
+.railgraph svg {
+  width: 100%;
+  height: 61px;
+}
+.railgraph b {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  display: block;
+}
+.railgraph small {
+  color: #bcb7d6;
+  font-size: 10px;
+}
+.shell {
+  min-width: 0;
+  flex: 1;
+}
+.top {
+  height: 57px;
+  background: #ffffffed;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(18px, 2.6vw, 45px);
+  font-size: 12px;
+  color: #72768b;
+}
+.top > div,
+.clock,
+.heading,
+.tools,
+.titlegroup,
+.mapbuttons,
+.legend span,
+.badge,
+.kicker,
+.pulsefacts,
+.pulserow,
+.stamp,
+.event,
+.phasefoot,
+.phaseid {
+  display: flex;
+  align-items: center;
+}
+.top > div,
+.clock {
+  gap: 9px;
+}
+.top i,
+.heading p i,
+.trafficfoot i,
+footer i {
+  color: #b5b6c6;
+}
+.top strong {
+  color: #4a4c65;
+}
+.clock {
+  font-size: 12px;
+}
+.top .avatar {
+  border-radius: 50%;
+  font: 600 10px var(--mono);
+  width: 31px;
+  height: 31px;
+  background: #ece9fd;
+  color: #6556ab;
+  margin-left: 8px;
+}
+.desk main {
+  max-width: 1780px;
+  margin: auto;
+  padding: 26px clamp(18px, 2.6vw, 45px) 12px;
+}
+.heading {
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 21px;
+}
+.overline,
+.cardhead small,
+.kicker {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  color: #757891;
+}
+.overline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6754aa;
+}
+.overline b {
+  width: 19px;
+  height: 3px;
+  background: #7e64e9;
+}
+.overline i {
+  color: #b9aee2;
+}
+.heading h1 {
+  font-size: clamp(31px, 3vw, 46px);
+  letter-spacing: -0.05em;
+  margin: 2px 0 3px;
+  line-height: 1.23;
+  font-weight: 760;
+}
+.heading h1 span {
+  color: #7863ec;
+}
+.heading p {
+  margin: 0;
+  color: #697087;
+  font-size: 12px;
+}
+.heading p i {
+  margin: 0 6px;
+}
+.tools {
+  gap: 8px;
+  font-size: 12px;
+}
+.badge {
+  background: #ebe7ff;
+  color: #5945a9;
+  padding: 5px 10px;
+  border-radius: 20px;
+  gap: 6px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.badge i,
+.legend i,
+.stamp i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.badge.ok {
+  background: #d4f5e8;
+  color: #137354;
+}
+.primary,
+.secondary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.95fr) minmax(255px, 1fr);
+  gap: 17px;
+}
+.card {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px #25234105;
+}
+.cardhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 18px 20px;
+}
+.titlegroup {
+  gap: 10px;
+}
+.tile {
+  background: #efecff;
+  color: #6952d1;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+}
+.tile svg {
+  width: 20px;
+  height: 20px;
+}
+.tile.mint {
+  background: #e0f1ee;
+  color: #267e73;
+}
+.tile.gold {
+  background: #fff0d6;
+  color: #b98028;
+}
+.cardhead small {
+  font-size: 8px;
+}
+.cardhead h2,
+.pulse h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.035em;
+  line-height: 1.45;
+}
+.mapbuttons {
+  gap: 5px;
+}
+.node {
+  font-size: 10px;
+  background: #f1f2f7;
+  color: #555b76;
+  padding: 3px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+}
+.mapbuttons button {
+  padding: 5px;
+  color: #717889;
+  border-color: transparent;
+}
+.mapbuttons button[aria-pressed="true"] {
+  color: var(--accent);
+  background: #f1effc;
+}
+.map {
+  display: flex;
+  flex-direction: column;
+}
+.mapview {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #101b2e;
+  min-height: 290px;
+}
+.mapview svg {
+  height: 100%;
+  min-height: 290px;
+  max-height: 480px;
+}
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 20px;
+  font-size: 11px;
+  color: #555c72;
+}
+.legend span {
+  gap: 6px;
+}
+.legend small {
+  margin-left: auto;
+  color: #787e91;
+  font-size: 10px;
+}
+.legend .green {
+  background: #25b984;
+}
+.legend .yellow {
+  background: #e9a02b;
+}
+.legend .red {
+  background: #e45b64;
+}
+.legend .unknown {
+  background: #8993a3;
+}
+.right {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 15px;
+}
+.phase {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(108deg, #4837a2, #594ab9);
+  color: #fff;
+  border: 0;
+  padding: 19px 20px 12px;
+}
+.phase:after {
+  content: "";
+  position: absolute;
+  top: -56px;
+  right: -85px;
+  height: 245px;
+  width: 245px;
+  background: repeating-radial-gradient(
+    ellipse at 70% 50%,
+    transparent 0 10px,
+    #d1bcff24 11px 12px,
+    transparent 13px 17px
+  );
+  transform: rotate(-28deg) scaleX(0.9);
+  z-index: -1;
+}
+.kicker {
+  gap: 7px;
+}
+.phase .kicker {
+  color: #ded8ff;
+}
+.mark {
+  font-size: 15px;
+}
+.righttag {
+  margin-left: auto;
+  border: 1px solid #ffffff4a;
+  color: #f1eefe;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+.phase h2 {
+  font-size: clamp(25px, 2.3vw, 37px);
+  margin: 10px 0 4px;
+  letter-spacing: -0.04em;
+}
+.phaseid {
+  gap: 8px;
+  font-size: 10px;
+  color: #e7e4ff;
+}
+.phaseid code {
+  border: 1px solid #ffffff42;
+  border-radius: 4px;
+  padding: 1px 6px;
+  letter-spacing: 0.08em;
+}
+.phasefoot {
+  justify-content: space-between;
+  font-size: 11px;
+  color: #dbd8ef;
+  border-top: 1px solid #ffffff32;
+  margin-top: 16px;
+  padding-top: 9px;
+}
+.phasefoot b {
+  color: white;
+  font-weight: 500;
+}
+.pulse {
+  padding: 17px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.pulse .kicker {
+  color: #725cc0;
+}
+.pulse .kicker button {
+  margin-left: auto;
+  padding: 2px;
+  border-color: transparent;
+}
+.pulse h2 {
+  font-size: 16px;
+  margin: 3px 0;
+}
+.pulserow {
+  gap: 10px;
+}
+.pulserow svg {
+  min-width: 40px;
+  width: 46%;
+  height: 38px;
+  margin-left: auto;
+}
+.big {
+  font: 600 clamp(30px, 2.9vw, 47px) / 1.18 var(--mono);
+  letter-spacing: -0.075em;
+  white-space: nowrap;
+}
+.big small {
+  font: 12px var(--mono);
+  letter-spacing: 0;
+  color: #777c8d;
+}
+.pulsefacts {
+  gap: 14px;
+  margin-top: 10px;
+}
+.pulsefacts > div {
+  flex: 1;
+}
+.pulsefacts > div + div {
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+.pulsefacts small {
+  color: var(--muted);
+  font-size: 10px;
+  display: block;
+}
+.pulsefacts b {
+  font: 600 16px var(--mono);
+}
+.pulsefacts em {
+  font: 10px var(--mono);
+  color: #777c8e;
+}
+.stamp {
+  gap: 5px;
+  border-top: 1px solid var(--line);
+  margin: 9px 0 0;
+  padding-top: 9px;
+  font-size: 10px;
+  color: #73798c;
+}
+.stamp i {
+  background: #a1a5b5;
+}
+.stamp i.beat {
+  background: #8264dc;
+  animation: beat 0.45s ease-out;
+}
+@keyframes beat {
+  from {
+    box-shadow: 0 0 0 4px #9c7bec55;
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.secondary {
+  grid-template-columns: 1fr 1.07fr;
+  margin-top: 16px;
+}
+.total {
+  background: #f3f4f8;
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 10px;
+  color: #656a81;
+}
+.total b {
+  font: 700 14px var(--mono);
+  color: var(--ink);
+}
+.loadrows {
+  margin: 0 17px;
+}
+.loadrows button {
+  display: grid;
+  grid-template-columns: 22px 50px 1fr 40px;
+  gap: 7px;
+  width: 100%;
+  border: 0;
+  border-radius: 5px;
+  padding: 4px;
+  color: #545970;
+  background: none;
+  text-align: left;
+}
+.loadrows .chosen {
+  background: #f4f1ff;
+}
+.letter {
+  background: #edf0f6;
+  color: #67708d;
+  font-size: 10px;
+  border-radius: 4px;
+  text-align: center;
+  padding: 2px;
+}
+.chosen .letter {
+  background: #ded7ff;
+  color: #604caf;
+}
+.loadrows strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+.loadrows b {
+  font: 600 13px var(--mono);
+  text-align: right;
+}
+.loadrows small {
+  font-size: 9px;
+}
+.track {
+  height: 6px;
+  background: #edeef5;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.track i {
+  display: block;
+  height: 100%;
+  background: #a39bde;
+  border-radius: 4px;
+}
+.chosen .track i {
+  background: #7e66e3;
+}
+.trafficfoot {
+  background: #fafaff;
+  border-top: 1px solid #eeeef6;
+  margin-top: 10px;
+  padding: 8px 20px;
+  font-size: 11px;
+  color: #60657c;
+}
+.trafficfoot i {
+  margin: 0 3px;
+}
+.cardhead .more {
+  font-size: 11px;
+  border: 0;
+  color: var(--accent);
+  padding: 4px;
+}
+.event {
+  margin: 0 18px;
+  gap: 10px;
+  border-top: 1px solid #eef0f5;
+  padding: 8px 0;
+  font-size: 11px;
+}
+.event time {
+  color: #73798b;
+  font-size: 10px;
+}
+.eventtype {
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  white-space: nowrap;
+  background: #eef0f6;
+  color: #626b88;
+}
+.eventtype.mode_change {
+  background: #eeebff;
+  color: #6450ac;
+}
+.eventtype.decision_change {
+  background: #e5f2fa;
+  color: #376a91;
+}
+.eventtype.alarm,
+.eventtype.heartbeat_fault {
+  background: #ffebe5;
+  color: #a24d39;
+}
+.event strong {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.event small {
+  margin-left: auto;
+}
+.empty {
+  font-size: 12px;
+  color: #777d90;
+  padding: 0 20px 20px;
+}
+footer {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  color: #747b91;
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  padding: 17px 0 4px;
+}
+footer span {
+  margin-left: auto;
+}
+.wide {
+  position: fixed;
+  inset: 3vh 3vw;
+  z-index: 10;
+  box-shadow: 0 0 0 100vmax #0b1025c9;
+}
+.wide .mapview svg {
+  max-height: 75vh;
+}
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: #181c35a1;
+  padding: 14px;
+}
+.modal {
+  width: min(480px, 100%);
+  max-height: 80vh;
+  overflow: auto;
+  padding: 0 18px 18px;
+  box-shadow: 0 14px 60px #1c193f33;
+}
+.modal .cardhead {
+  padding-inline: 0;
+}
+.modal p,
+.modal dl {
+  font-size: 13px;
+  color: #585f76;
+}
+.modal dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 8px;
+  border-block: 1px solid var(--line);
+  padding: 12px 0;
+}
+.modal dd {
+  text-align: right;
+  margin: 0;
+  font-family: var(--mono);
+}
+.modal .event {
+  margin: 0;
+}
+.modal select {
+  margin-bottom: 12px;
+}
+@media (min-width: 1650px) {
+  .rail {
+    width: 215px;
+    flex-basis: 215px;
+  }
+  .primary {
+    grid-template-columns: 2.2fr 1fr;
+  }
+  .right .pulse,
+  .right .phase {
+    padding: 24px;
+  }
+}
+@media (max-width: 1130px) {
+  .rail {
+    width: 67px;
+    flex-basis: 67px;
+    padding: 15px 8px;
+  }
+  .brand {
+    margin: 6px auto 35px;
+  }
+  .brand div,
+  .railnav label,
+  .railnav button span,
+  .railgraph,
+  .railbottom {
+    display: none;
+  }
+  .railnav button {
+    justify-content: center;
+    font-size: 0;
+  }
+  .primary {
+    grid-template-columns: minmax(0, 1.85fr) minmax(240px, 1fr);
+  }
+}
+@media (max-width: 820px) {
+  .primary {
+    grid-template-columns: 1fr;
+  }
+  .right {
+    grid-template-columns: 0.9fr 1fr;
+    grid-template-rows: auto;
+  }
+  .secondary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .mapview {
+    min-height: 0;
+  }
+  .mapview svg {
+    max-height: 370px;
+    min-height: 0;
+  }
+  .phase,
+  .pulse {
+    padding: 15px;
+  }
+  .phase h2 {
+    margin-top: 20px;
+  }
+  .phasefoot {
+    margin-top: 24px;
+  }
+  .event {
+    gap: 5px;
+  }
+  .railnav button {
+    padding-inline: 8px;
+  }
+}
+@media (max-width: 650px) {
+  .desk {
+    display: block;
+  }
+  .rail {
+    width: auto;
+    height: 51px;
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 12px;
+  }
+  .brand {
+    margin: 0;
+    gap: 7px;
+  }
+  .brand svg {
+    width: 31px;
+    height: 31px;
+  }
+  .brand div {
+    display: block;
+  }
+  .brand b {
+    font-size: 17px;
+  }
+  .brand small {
+    font-size: 6px;
+  }
+  .railnav {
+    display: flex;
+    gap: 2px;
+  }
+  .railnav button {
+    margin: 0;
+    width: 36px;
+    height: 33px;
+  }
+  .top {
+    height: 40px;
+    padding: 0 12px;
+  }
+  .desk main {
+    padding: 18px 11px 10px;
+  }
+  .heading {
+    align-items: flex-start;
+    margin-bottom: 14px;
+    gap: 6px;
+  }
+  .heading h1 {
+    font-size: 28px;
+  }
+  .heading p {
+    font-size: 10px;
+  }
+  .overline {
+    font-size: 8px;
+  }
+  .tools {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    font-size: 10px;
+  }
+  .tools button,
+  .tools select {
+    padding: 3px 6px;
+  }
+  .cardhead {
+    padding: 12px;
+  }
+  .tile {
+    width: 29px;
+    height: 29px;
+  }
+  .titlegroup {
+    gap: 6px;
+  }
+  .cardhead h2 {
+    font-size: 16px;
+  }
+  .legend {
+    font-size: 10px;
+    gap: 12px;
+    padding: 8px 12px;
+  }
+  .legend small {
+    font-size: 9px;
+  }
+  .primary,
+  .secondary,
+  .right {
+    gap: 10px;
+  }
+  .secondary {
+    grid-template-columns: 1fr;
+    margin-top: 10px;
+  }
+  .phase,
+  .pulse {
+    padding: 12px;
+  }
+  .phase h2 {
+    font-size: 20px;
+  }
+  .phase .righttag {
+    display: none;
+  }
+  .phasefoot {
+    margin-top: 17px;
+  }
+  .big {
+    font-size: 27px;
+  }
+  .pulsefacts {
+    gap: 5px;
+  }
+  .pulsefacts b {
+    font-size: 13px;
+  }
+  .pulsefacts > div + div {
+    padding-left: 6px;
+  }
+  .stamp {
+    font-size: 8px;
+  }
+  .pulserow svg {
+    height: 25px;
+  }
+  .mapbuttons button {
+    padding: 3px;
+  }
+  .node {
+    font-size: 8px;
+  }
+  .event {
+    margin-inline: 12px;
+  }
+  .event:last-child {
+    margin-bottom: 7px;
+  }
+  .loadrows {
+    margin-inline: 12px;
+  }
+  .wide {
+    inset: 2vh 2vw;
+  }
+  .wide .mapview svg {
+    height: auto;
+  }
+  footer {
+    font-size: 8px;
+  }
+  .right {
+    grid-template-columns: 1fr 1.05fr;
+  }
+  .kicker {
+    font-size: 8px;
+  }
+  .kicker svg {
+    width: 14px;
+    height: 14px;
+  }
+  .pulse h2 {
+    font-size: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stamp i.beat {
+    animation: none;
+  }
+}

@@ -1,0 +1,253 @@
+.desk {
+  --ink: #1d3738;
+  --muted: #617273;
+  --line: #d9e2da;
+  --accent: #267560;
+  background: #f0f3ef;
+}
+.rail {
+  background: linear-gradient(155deg, #153938, #102c30 71%, #1b393a);
+  color: #e0ebe2;
+  width: 164px;
+  flex-basis: 164px;
+}
+.brand svg rect {
+  fill: #428a77;
+}
+.brand small,
+.railnav label,
+.railgraph small {
+  color: #b1c9be;
+}
+.railnav button,
+.railbottom button {
+  color: #d0dfd7;
+}
+.railnav .active {
+  background: #335d51;
+  box-shadow: inset 3px 0 0 #bddc94;
+}
+.railnav button:hover,
+.railbottom button:hover {
+  background: #294c47;
+}
+.railgraph {
+  background: #26473f;
+  border-color: #48665a;
+}
+.railgraph g {
+  stroke: #a3c795;
+}
+.heading h1 {
+  font-size: clamp(30px, 2.9vw, 47px);
+  letter-spacing: -0.045em;
+}
+.heading h1 span {
+  color: #548875;
+  font-weight: 400;
+}
+.overline,
+.kicker {
+  color: #52826f;
+}
+.overline b {
+  background: #67997e;
+}
+.tools .badge {
+  background: #e8eee0;
+  color: #567741;
+}
+.top .avatar,
+.tile {
+  background: #deeee5;
+  color: #367761;
+}
+.primary {
+  grid-template-columns: minmax(0, 2.48fr) minmax(235px, 0.86fr);
+  align-items: stretch;
+}
+.mapview {
+  display: block;
+  background: #213e49;
+  min-height: 0;
+}
+.map {
+  background: #fbfdfa;
+}
+.map .cardhead {
+  padding-block: 14px;
+}
+.card {
+  border-radius: 14px;
+}
+.mapbuttons button[aria-pressed="true"] {
+  color: #3a735c;
+  background: #e3efe6;
+}
+.siteid {
+  font:
+    12px ui-monospace,
+    monospace;
+  background: #fff;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.phase {
+  background: linear-gradient(110deg, #17483e, #326e5a);
+}
+.phase:after {
+  background: repeating-radial-gradient(
+    ellipse at 70% 50%,
+    transparent 0 9px,
+    #cbecaa35 10px 11px,
+    transparent 12px 17px
+  );
+}
+.phase .kicker,
+.phasefoot,
+.phaseid {
+  color: #cde3d5;
+}
+.phase h2 {
+  font-size: clamp(23px, 2vw, 34px);
+}
+.roadread {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #f0f7e6;
+}
+.roadread small {
+  font-size: 9px;
+  color: #d8e6cf;
+  border: 1px solid #91b2976e;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+.pulse .kicker {
+  color: #467c6e;
+}
+.pulserow polyline {
+  stroke: #4c9276;
+}
+.pulse {
+  justify-content: center;
+  gap: 4px;
+}
+.stamp i.beat {
+  background: #468969;
+}
+.pulse .pulsefacts {
+  margin-block: 12px;
+}
+.track i {
+  background: #9bb8a6;
+}
+.chosen .track i {
+  background: #568c72;
+}
+.loadrows .chosen,
+.chosen .letter {
+  background: #e4efe5;
+  color: #326448;
+}
+.trafficfoot {
+  background: #f7faf5;
+}
+.eventtype.mode_change {
+  background: #e6efe5;
+  color: #387259;
+}
+.legend {
+  padding-block: 9px;
+}
+.diagnostic {
+  background: #fff5df;
+  border: 1px solid #e8d6b2;
+  color: #755a2d;
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 12px 0 -3px;
+}
+.secondary {
+  grid-template-columns: 1.05fr 1fr;
+}
+.wide .mapview {
+  display: grid;
+  align-content: center;
+}
+.wide {
+  background: #edf4ef;
+}
+.right {
+  grid-template-rows: 1fr 1.05fr;
+}
+.phase {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.phase h2 {
+  margin-top: 20px;
+}
+.phasefoot {
+  margin-top: 20px;
+}
+.end {
+  color: #7a8780;
+}
+@media (max-width: 1140px) {
+  .rail {
+    width: 67px;
+    flex-basis: 67px;
+  }
+  .primary {
+    grid-template-columns: minmax(0, 2fr) minmax(214px, 0.85fr);
+  }
+}
+@media (max-width: 820px) {
+  .primary {
+    grid-template-columns: 1fr;
+  }
+  .right {
+    grid-template-rows: 1fr;
+  }
+  .secondary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pulse .pulsefacts {
+    margin-block: 4px;
+  }
+}
+@media (max-width: 650px) {
+  .rail {
+    width: auto;
+  }
+  .secondary {
+    grid-template-columns: 1fr;
+  }
+  .heading h1 {
+    font-size: 26px;
+  }
+  .phase h2 {
+    font-size: 19px;
+  }
+  .phase h2,
+  .phasefoot {
+    margin-top: 8px;
+  }
+  .roadread {
+    font-size: 10px;
+  }
+  .phasefoot {
+    font-size: 10px;
+  }
+  .heading {
+    gap: 4px;
+  }
+  .cardhead h2 {
+    font-size: 15px;
+  }
+}

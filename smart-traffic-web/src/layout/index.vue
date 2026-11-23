@@ -1,5 +1,6 @@
 <template>
-  <el-container class="layout-container">
+  <router-view v-if="$route.name === 'Dashboard'" />
+  <el-container v-else class="layout-container">
     <el-aside width="220px" class="aside">
       <div class="logo">🚦 智慧路口平台</div>
       <el-menu

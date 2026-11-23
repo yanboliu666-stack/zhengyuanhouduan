@@ -1,894 +1,624 @@
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { useRouter } from "vue-router";
+import {
+  Monitor,
+  Connection,
+  Operation,
+  Document,
+  FullScreen,
+  Grid,
+  DataAnalysis,
+  ArrowRight,
+  Clock,
+  SwitchButton,
+  Close,
+  VideoPlay,
+  VideoPause,
+  InfoFilled,
+  Aim,
+  TrendCharts,
+} from "@element-plus/icons-vue";
+import SiteView from "../terrain/SiteView.vue";
+import {
+  bindingOK,
+  demoBinding,
+  district,
+  arms as roads,
+} from "../terrain/site";
+import {
+  dirs,
+  resolve,
+  text,
+  evNames,
+  valid,
+  demoFeed,
+  signalColorsToLamps,
+  type Feed,
+  type EventRow,
+  type Lamp,
+} from "../desk/feed";
+import { trafficApi } from "../api/traffic";
+const props = defineProps<{ demo?: boolean }>(),
+  router = useRouter(),
+  f = ref<Feed>({}),
+  now = ref(Date.now() / 1000),
+  id = ref(import.meta.env.VITE_PANAN_JUNCTION || "mini_1"),
+  binding = ref<string[]>(demoBinding.slice()),
+  lampColors = ref<Lamp[] | undefined>(undefined),
+  confirmed = ref(false),
+  panel = ref(""),
+  focus = ref(0),
+  grid = ref(true),
+  wide = ref(false),
+  paused = ref(false),
+  err = ref(""),
+  samples = ref<{ ts: number; ms: number }[]>([]),
+  filter = ref("all"),
+  nav = ref("监测总览");
+let alive = true,
+  epoch = 0,
+  loading = false,
+  offset = 0,
+  tick = 192,
+  timer = 0,
+  timer2 = 0;
+const sig = computed(() => resolve(f.value, now.value)),
+  online = computed(() => valid(f.value.ts, now.value)),
+  age = computed(() =>
+    f.value.ts ? Math.max(0, now.value - f.value.ts) : null,
+  ),
+  current = computed(() => {
+    const v = sig.value;
+    const arm = dirs.find((d) => d[3] === v.phase);
+    return (
+      (arm && ["green", "yellow"].includes(v.stage) ? arm[1] + "向" : "") +
+      text[v.stage]
+    );
+  }),
+  connection = computed(() =>
+    props.demo
+      ? "演示回放"
+      : err.value ||
+        (online.value ? "边缘在线" : f.value.ts ? "遥测过期" : "等待遥测"),
+  );
+const fmt = (s?: number) =>
+  s ? new Date(s * 1000).toLocaleTimeString("en-GB", { hour12: false }) : "—";
+const lane = (i: number, k: string) =>
+  online.value ? f.value.lanes?.[dirs[i]![2] + "_" + k] : undefined;
+function count(i: number, k: string) {
+  const v = lane(i, k)?.vehicle_count;
+  return typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : null;
+}
+const totals = computed(() =>
+    dirs.map((_, i) => {
+      const a = count(i, "through"),
+        b = count(i, "left");
+      return a !== null && b !== null ? a + b : null;
+    }),
+  ),
+  total = computed(() =>
+    totals.value.every((x) => x !== null)
+      ? totals.value.reduce((s, x) => s + x!, 0)
+      : null,
+  ),
+  events = computed(() =>
+    [...(f.value.events ?? [])].sort((a, b) => b.ts - a.ts),
+  ),
+  filtered = computed(() =>
+    events.value.filter(
+      (e) => filter.value === "all" || e.type === filter.value,
+    ),
+  ),
+  realTick = computed(
+    () => events.value.find((e) => typeof e.tick === "number")?.tick,
+  );
+const interval = computed(() =>
+    online.value && Number(f.value.interval_ms) > 0
+      ? f.value.interval_ms
+      : null,
+  ),
+  rate = computed(() =>
+    interval.value ? (1000 / interval.value).toFixed(1) : "—",
+  ),
+  latency = computed(() =>
+    online.value && f.value.received_ms && f.value.ts
+      ? Math.round(f.value.received_ms - f.value.ts * 1000)
+      : null,
+  );
+const trace = computed(() => {
+  const s = samples.value;
+  if (!s.length) return "";
+  const m = Math.max(600, ...s.map((v) => v.ms)),
+    lo = Math.min(400, ...s.map((v) => v.ms));
+  return s
+    .map(
+      (v, i) =>
+        `${(i * 240) / Math.max(1, s.length - 1)},${36 - (32 * (v.ms - lo)) / (m - lo || 1)}`,
+    )
+    .join(" ");
+});
+function accept(d: Feed) {
+  f.value = d;
+  if (
+    d.ts &&
+    d.interval_ms &&
+    Number.isFinite(d.interval_ms) &&
+    d.interval_ms > 0 &&
+    samples.value.at(-1)?.ts !== d.ts
+  ) {
+    samples.value.push({ ts: d.ts, ms: d.interval_ms });
+    samples.value = samples.value.slice(-32);
+  }
+}
+function sample() {
+  now.value = Date.now() / 1000;
+  accept(demoFeed(tick, now.value));
+}
+async function poll() {
+  if (loading || !alive) return;
+  loading = true;
+  const g = epoch;
+  try {
+    const r = await trafficApi.getJunctionRealtimeState(id.value);
+    if (!alive || epoch !== g) return;
+    const d = r.data?.data;
+    if (!d || d.junction_id !== id.value) throw Error();
+    offset =
+      typeof d.server_ms === "number"
+        ? d.server_ms / 1000 - Date.now() / 1000
+        : 0;
+    now.value = Date.now() / 1000 + offset;
+    binding.value = d.site
+      ? bindingOK(d.site.binding)
+        ? d.site.binding
+        : []
+      : demoBinding.slice();
+    confirmed.value = !!d.site?.confirmed && binding.value.length === 4;
+    err.value = d.edge_feed?.ts ? "" : "未收到感知快照";
+    accept(d.edge_feed ?? {});
+    // 以边缘计算下发的每盏灯真实颜色为最高优先级；缺失时回退 resolve() 推导
+    lampColors.value = signalColorsToLamps(d.signal_colors);
+  } catch {
+    if (alive && epoch === g) {
+      err.value = "接口未连接";
+      f.value = {};
+    }
+  } finally {
+    if (epoch === g) loading = false;
+  }
+}
+function eventText(e: EventRow) {
+  if (e.type === "decision_change") return `建议相位 ${e.to_phase ?? "—"}`;
+  if (e.type === "mode_change" || e.type === "degradation_change")
+    return `${e.from_mode ?? "—"} → ${e.to_mode ?? "—"}`;
+  return e.reason || e.alarm_type || evNames[e.type] || e.type;
+}
+function section(s: string) {
+  nav.value = s;
+  if (s === "监测总览") window.scrollTo({ top: 0, behavior: "smooth" });
+  else if (s === "边缘链路" || s === "事件记录") panel.value = s;
+  else if (props.demo) panel.value = "演示说明";
+  else router.push("/control");
+}
+function close() {
+  panel.value = "";
+  wide.value = false;
+  nav.value = "监测总览";
+}
+function esc(e: KeyboardEvent) {
+  if (e.key === "Escape") close();
+}
+onMounted(() => {
+  window.addEventListener("keydown", esc);
+  if (props.demo) {
+    for (let j = tick - 28; j < tick; j++)
+      accept(demoFeed(j, now.value - (tick - j) * 0.5));
+    sample();
+    timer = window.setInterval(() => {
+      if (!paused.value) {
+        tick++;
+        sample();
+      }
+    }, 500);
+  } else {
+    void poll();
+    timer = window.setInterval(poll, 500);
+    timer2 = window.setInterval(
+      () => (now.value = Date.now() / 1000 + offset),
+      200,
+    );
+  }
+});
+onUnmounted(() => {
+  alive = false;
+  epoch++;
+  clearInterval(timer);
+  clearInterval(timer2);
+  window.removeEventListener("keydown", esc);
+});
+const links = [
+  { name: "监测总览", icon: Monitor },
+  { name: "边缘链路", icon: Connection },
+  { name: "事件记录", icon: Document },
+  { name: "配时控制", icon: Operation },
+];
+const modeName = computed(
+  () =>
+    ({
+      normal: "常规放行",
+      clearance: "黄灯清空",
+      all_red: "全红过渡",
+      fault: "故障模式",
+      manual_override: "人工 / 本地",
+    })[f.value.mode ?? ""] ?? "等待模式事件",
+);
+function logout() {
+  localStorage.removeItem("token");
+  router.push("/login");
+}
+</script>
 <template>
-  <div class="twin-container">
-    <!-- 顶部状态抬头栏 -->
-    <div class="twin-header">
-      <div class="header-left">
-        <span class="live-dot"></span>
-        <span class="system-title">全息路口数字孪生云控大屏 (Digital Twin Hub)</span>
-        <el-tag size="small" type="success" effect="dark" class="sync-badge">
-          MQTT 边缘毫秒级同步中
-        </el-tag>
+  <div class="desk">
+    <aside class="rail">
+      <div class="brand">
+        <svg viewBox="0 0 42 42" aria-hidden="true">
+          <rect width="42" height="42" rx="12" fill="#7764ff" />
+          <g fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round">
+            <path
+              d="M10 30V17q0-6 6-6h3M18 31V21q0-5 5-5h8M26 31v-5q0-3 4-3h2"
+            />
+          </g>
+        </svg>
+        <div><b>路序</b><small>SIGNAL DESK</small></div>
       </div>
-
-      <div class="header-right">
-        <span class="label">孪生目标路口：</span>
-        <el-select v-model="selectedJunction" class="junction-select" @change="handleJunctionChange">
-          <el-option
-            v-for="item in junctionList"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
-        </el-select>
-        <span class="clock-display">⏱ {{ currentTime }}</span>
+      <div class="railnav">
+        <label>WORKSPACE</label
+        ><button
+          v-for="l in links"
+          :aria-label="l.name"
+          :key="l.name"
+          :class="{ active: nav === l.name }"
+          @click="section(l.name)"
+        >
+          <component :is="l.icon" /><span>{{ l.name }}</span>
+        </button>
       </div>
-    </div>
-
-    <!-- 主展示区：三栏布局 -->
-    <div class="twin-grid">
-      <!-- 左侧：边缘决策态势与指标 -->
-      <div class="column-panel left-col">
-        <!-- 边缘自治态势卡片 -->
-        <el-card class="tech-card">
-          <template #header>
-            <div class="card-header">
-              <span class="icon">⚡</span>
-              <span>边缘端决策态势 (Edge Telemetry)</span>
+      <div class="railbottom">
+        <div class="railgraph">
+          <svg viewBox="0 0 150 66" aria-hidden="true">
+            <g
+              stroke="#8e83ed"
+              fill="none"
+              opacity=".65"
+              transform="translate(72 35) scale(1 .42) rotate(35)"
+            >
+              <rect
+                v-for="k in 6"
+                :key="k"
+                :x="-8 * k"
+                :y="-8 * k"
+                :width="16 * k"
+                :height="16 * k"
+                rx="4"
+              />
+              <path d="M-70 0H70M0-70V70" />
+            </g></svg
+          ><b>PAN’AN FIELD LAB</b><small>磐安 · 路口观测站</small>
+        </div>
+        <button @click="panel = '接入信息'"><InfoFilled /> 接入信息</button>
+      </div>
+    </aside>
+    <div class="shell">
+      <header class="top">
+        <div><Grid /> 工作空间 <i>/</i> <strong>信号监测</strong></div>
+        <div>
+          <span class="clock"><Clock />{{ fmt(now) }}</span
+          ><button
+            class="avatar"
+            aria-label="账户与接入信息"
+            @click="panel = '接入信息'"
+          >
+            OP
+          </button>
+        </div>
+      </header>
+      <main>
+        <div class="heading">
+          <div>
+            <div class="overline">
+              <b></b> TERRAIN OBSERVATORY <i>/</i> SITE 01
             </div>
-          </template>
-
-          <div class="telemetry-grid">
-            <div class="tele-item active-phase">
-              <div class="tele-title">当前通行相位</div>
-              <div class="tele-value glow-green">{{ twinState.clearing_phase || twinState.current_phase_id || '—' }}</div>
-              <div class="tele-desc">{{ signalDescription }}</div>
-            </div>
-
-            <div class="tele-item">
-              <div class="tele-title">控制运行模式</div>
-              <div class="tele-tag-box">
-                <el-tag :type="getModeTagType(twinState.mode)" effect="dark" size="large">
-                  {{ (twinState.mode || 'unknown').toUpperCase() }}
-                </el-tag>
-              </div>
-              <div class="tele-desc">边缘自适应算法</div>
-            </div>
-
-            <div class="tele-item">
-              <div class="tele-title">降级容灾状态</div>
-              <div class="tele-tag-box">
-                <el-tag :type="twinState.degradation === 'normal' ? 'success' : 'warning'" effect="plain">
-                  {{ twinState.degradation === 'normal' ? '正常 (NORMAL)' : (twinState.degradation ? '降级 (PARTIAL)' : '待同步') }}
-                </el-tag>
-              </div>
-              <div class="tele-desc">无缝安全兜底</div>
-            </div>
-
-            <div class="tele-item">
-              <div class="tele-title">边缘决策 Tick</div>
-              <div class="tele-value tick-num">#{{ twinState.tick_id ?? '—' }}</div>
-              <div class="tele-desc">10Hz 控制节拍</div>
-            </div>
+            <h1>南环路 <span>×</span> 双溪路</h1>
+            <p>{{ district.region }} <i>/</i> 路口三维数字孪生</p>
           </div>
-        </el-card>
-
-        <!-- 交通感知流态指标 -->
-        <el-card class="tech-card mt-3">
-          <template #header>
-            <div class="card-header">
-              <span class="icon">📊</span>
-              <span>全息交通流实时感知</span>
-            </div>
-          </template>
-
-          <div class="metric-grid">
-            <div class="m-card">
-              <div class="m-num">{{ trafficMetrics.vehicleCount }} <small>pcu</small></div>
-              <div class="m-label">当前总车流</div>
-            </div>
-            <div class="m-card">
-              <div class="m-num">{{ trafficMetrics.avgSpeed }} <small>km/h</small></div>
-              <div class="m-label">平均车速</div>
-            </div>
-            <div class="m-card">
-              <div class="m-num">{{ trafficMetrics.delayTime }} <small>s</small></div>
-              <div class="m-label">平均延误</div>
-            </div>
-            <div class="m-card">
-              <div class="m-num glow-green">{{ trafficMetrics.level }}</div>
-              <div class="m-label">服务水平</div>
-            </div>
+          <div class="tools">
+            <span class="badge" :class="{ ok: online && !demo }"
+              ><i />{{ connection }}</span
+            ><button v-if="demo" @click="paused = !paused">
+              <component :is="paused ? VideoPlay : VideoPause" />{{
+                paused ? "继续" : "暂停"
+              }}</button
+            ><span v-else class="siteid">{{ id }}</span>
           </div>
-        </el-card>
-      </div>
-
-      <!-- 中间：核心数字孪生 3D 沙盘 (全四向真实信号灯 + 车流动画) -->
-      <div class="column-panel center-col">
-        <el-card class="tech-card sandbox-card">
-          <template #header>
-            <div class="card-header justify-between">
-              <div>
-                <span class="icon">🚦</span>
-                <span>数字孪生路口沙盘 ({{ selectedJunction }})</span>
-              </div>
-              <div class="phase-banner">
-                灯态：<strong class="glow-text">{{ signalDescription }}</strong>
-              </div>
-            </div>
-          </template>
-
-          <div class="sandbox-canvas">
-            <!-- 1. 北向信号灯 (North) -->
-            <div class="signal-housing signal-north">
-              <div class="signal-label">北 (N)</div>
-              <div class="signal-frame">
-                <div :class="['lamp', 'red', { lit: getLightColor('north') === 'red' }]"></div>
-                <div :class="['lamp', 'yellow', { lit: getLightColor('north') === 'yellow' }]"></div>
-                <div :class="['lamp', 'green', { lit: getLightColor('north') === 'green' }]"></div>
-              </div>
-            </div>
-
-            <!-- 2. 南向信号灯 (South) -->
-            <div class="signal-housing signal-south">
-              <div class="signal-frame">
-                <div :class="['lamp', 'red', { lit: getLightColor('south') === 'red' }]"></div>
-                <div :class="['lamp', 'yellow', { lit: getLightColor('south') === 'yellow' }]"></div>
-                <div :class="['lamp', 'green', { lit: getLightColor('south') === 'green' }]"></div>
-              </div>
-              <div class="signal-label">南 (S)</div>
-            </div>
-
-            <!-- 3. 西向信号灯 (West) -->
-            <div class="signal-housing signal-west">
-              <div class="signal-label">西 (W)</div>
-              <div class="signal-frame horizontal">
-                <div :class="['lamp', 'red', { lit: getLightColor('west') === 'red' }]"></div>
-                <div :class="['lamp', 'yellow', { lit: getLightColor('west') === 'yellow' }]"></div>
-                <div :class="['lamp', 'green', { lit: getLightColor('west') === 'green' }]"></div>
-              </div>
-            </div>
-
-            <!-- 4. 东向信号灯 (East) -->
-            <div class="signal-housing signal-east">
-              <div class="signal-frame horizontal">
-                <div :class="['lamp', 'red', { lit: getLightColor('east') === 'red' }]"></div>
-                <div :class="['lamp', 'yellow', { lit: getLightColor('east') === 'yellow' }]"></div>
-                <div :class="['lamp', 'green', { lit: getLightColor('east') === 'green' }]"></div>
-              </div>
-              <div class="signal-label">东 (E)</div>
-            </div>
-
-            <!-- 十字路口道路拓扑 -->
-            <div class="crossroad-roadbed">
-              <!-- 北路面 & 斑马线 -->
-              <div class="road-arm road-north">
-                <div class="lane-divider-v"></div>
-                <div class="zebra-stripe zebra-h top-zebra"></div>
-                <!-- 南北绿灯时的动态流动车流粒子 -->
-                <div v-if="getLightColor('north') === 'green'" class="traffic-particle particle-ns particle-ns-1"></div>
-              </div>
-
-              <!-- 南路面 & 斑马线 -->
-              <div class="road-arm road-south">
-                <div class="lane-divider-v"></div>
-                <div class="zebra-stripe zebra-h bottom-zebra"></div>
-                <div v-if="getLightColor('south') === 'green'" class="traffic-particle particle-sn particle-sn-1"></div>
-              </div>
-
-              <!-- 西路面 & 斑马线 -->
-              <div class="road-arm road-west">
-                <div class="lane-divider-h"></div>
-                <div class="zebra-stripe zebra-v left-zebra"></div>
-                <!-- 东西绿灯时的动态流动车流粒子 -->
-                <div v-if="getLightColor('west') === 'green'" class="traffic-particle particle-we particle-we-1"></div>
-              </div>
-
-              <!-- 东路面 & 斑马线 -->
-              <div class="road-arm road-east">
-                <div class="lane-divider-h"></div>
-                <div class="zebra-stripe zebra-v right-zebra"></div>
-                <div v-if="getLightColor('east') === 'green'" class="traffic-particle particle-ew particle-ew-1"></div>
-              </div>
-
-              <!-- 交叉口核心中央环岛 -->
-              <div class="intersection-center">
-                <div class="radar-scan"></div>
-                <div class="center-content">
-                  <div class="junction-tag">{{ selectedJunction }}</div>
-                  <div class="junction-state-tag">{{ twinState.mode?.toUpperCase() || 'unknown' }}</div>
+        </div>
+        <div class="primary">
+          <section class="card map" :class="{ wide }">
+            <div class="cardhead">
+              <div class="titlegroup">
+                <span class="tile"><Aim /></span>
+                <div>
+                  <small>SPATIAL DIGITAL TWIN</small>
+                  <h2>路口三维实景模拟</h2>
                 </div>
               </div>
-            </div>
-          </div>
-        </el-card>
-      </div>
-
-      <!-- 右侧：边缘告警流水 & 车道级排队感知 -->
-      <div class="column-panel right-col">
-        <!-- 实时告警流水 -->
-        <el-card class="tech-card">
-          <template #header>
-            <div class="card-header justify-between">
-              <div>
-                <span class="icon">🚨</span>
-                <span>边缘端实时告警流水</span>
-              </div>
-              <el-badge :value="alerts.length" :max="99" class="alert-badge" type="danger" />
-            </div>
-          </template>
-
-          <div class="alarm-flow-list">
-            <div v-for="alarm in alerts" :key="alarm.id" class="alarm-card">
-              <div class="alarm-top">
-                <el-tag size="small" :type="alarm.level === 'warning' ? 'warning' : 'danger'" effect="dark">
-                  {{ alarm.alarm_type || alarm.type || 'ALARM' }}
-                </el-tag>
-                <span class="alarm-tick">Tick: #{{ alarm.tick_id || '2724' }}</span>
-              </div>
-              <div class="alarm-body">
-                {{ alarm.detail?.reason || alarm.description || 'controller_not_normal / 降级策略生效' }}
+              <div class="mapbuttons">
+                <span class="node">{{ id.toUpperCase() }}</span
+                ><button
+                  title="显示或隐藏地名"
+                  aria-label="显示或隐藏地名"
+                  :aria-pressed="grid"
+                  @click="grid = !grid"
+                >
+                  <Grid /></button
+                ><button
+                  title="放大或还原路口图"
+                  aria-label="放大或还原路口图"
+                  @click="wide = !wide"
+                >
+                  <FullScreen />
+                </button>
               </div>
             </div>
-            <div v-if="alerts.length === 0" class="no-alarm">
-              <span>🛡 边缘感知节点正常，未发生异常告警</span>
+            <div class="mapview">
+              <SiteView
+                :stage="sig.stage"
+                :phase="sig.phase"
+                :focus="focus"
+                :labels="grid"
+              :binding="binding"
+              :counts="totals"
+              :confirmed="confirmed"
+              :demo="!!demo"
+              :lamp-colors="lampColors"
+              @select="focus = $event"
+              />
             </div>
+            <div class="legend">
+              <span><i class="green" />放行</span
+              ><span><i class="yellow" />清空</span
+              ><span><i class="red" />禁行</span
+              ><span><i class="unknown" />未知</span><small>四向独立灯组</small>
+            </div>
+          </section>
+          <div class="right">
+            <section class="card phase">
+              <div class="kicker">
+                <span class="mark">◉</span> SIGNAL PHASE
+                <span class="righttag">当前相位</span>
+              </div>
+              <h2>{{ current }}</h2>
+              <div class="phaseid">
+                <code>{{ sig.phase || "—" }}</code
+                ><span>{{ demo ? "演示样例" : sig.source }}</span>
+              </div>
+              <div class="roadread">
+                {{
+                  sig.phase && binding.includes(sig.phase)
+                    ? roads[binding.indexOf(sig.phase)]?.name
+                    : "暂无可定位相位"
+                }}
+                <small>{{
+                  demo ? "演示" : confirmed ? "配置已核验" : "暂定映射"
+                }}</small>
+              </div>
+              <div class="phasefoot">
+                <span>控制模式</span><b>{{ online ? modeName : "未同步" }}</b>
+              </div>
+            </section>
+            <section class="card pulse">
+              <div class="kicker">
+                <TrendCharts /> EDGE PULSE
+                <button aria-label="查看边缘链路" @click="section('边缘链路')">
+                  <ArrowRight />
+                </button>
+              </div>
+              <h2>边缘数据脉搏</h2>
+              <div class="pulserow">
+                <div class="big">{{ rate }}<small> Hz</small></div>
+                <svg
+                  viewBox="0 0 240 42"
+                  preserveAspectRatio="none"
+                  aria-label="实际收到的相邻样本间隔"
+                >
+                  <path
+                    d="M0 33h240M0 18h240"
+                    stroke="#e4e3f2"
+                    stroke-dasharray="3 4"
+                  />
+                  <polyline
+                    :points="trace"
+                    fill="none"
+                    stroke="#7959ee"
+                    stroke-width="2.3"
+                    vector-effect="non-scaling-stroke"
+                  />
+                </svg>
+              </div>
+              <div class="pulsefacts">
+                <div>
+                  <small>最新采样间隔</small
+                  ><b>{{ interval ?? "—" }} <em>ms</em></b>
+                </div>
+                <div>
+                  <small>样本年龄</small
+                  ><b>{{ age !== null ? age.toFixed(1) : "—" }} <em>s</em></b>
+                </div>
+              </div>
+              <p :key="f.ts" class="stamp">
+                <i :class="{ beat: online }" />{{
+                  demo ? "回放样本" : "边缘样本"
+                }}
+                <b>#{{ f.seq ?? "—" }}</b> · {{ fmt(f.ts) }}
+              </p>
+            </section>
           </div>
-        </el-card>
-
-        <!-- 车道排队感知 -->
-        <el-card class="tech-card mt-3">
-          <template #header>
-            <div class="card-header">
-              <span class="icon">📈</span>
-              <span>进口道排队示意（非实测）</span>
+        </div>
+        <div
+          v-if="!demo && (!online || sig.stage === 'unknown')"
+          class="diagnostic"
+        >
+          <strong>{{ connection }}</strong> ·
+          {{
+            !online
+              ? err === "接口未连接"
+                ? "检查 Network 中状态 API、网关与登录状态。"
+                : f.ts
+                  ? "样本已过期；请核对边缘和服务器时钟及 MQTT 积压。"
+                  : `已选 ${id}。检查 ingest-svc 是否接收到该路口的 event/traffic_state。`
+              : "感知在更新，但灯色证据不足。请检查实际相位和 mode_change 事件。"
+          }}
+          地形始终显示，不用演示数据补灯。
+        </div>
+        <div class="secondary">
+          <section class="card traffic">
+            <div class="cardhead">
+              <div class="titlegroup">
+                <span class="tile mint"><DataAnalysis /></span>
+                <div>
+                  <small>APPROACH LOAD</small>
+                  <h2>进口车辆分布</h2>
+                </div>
+              </div>
+              <div class="total">
+                合计 <b>{{ total ?? "—" }}</b> 辆
+              </div>
             </div>
-          </template>
-
-          <div class="queue-list">
-            <div class="queue-row">
-              <div class="q-label">北进口 (直行)</div>
-              <el-progress :percentage="getLightColor('north') === 'green' ? 25 : 78" :status="getLightColor('north') === 'green' ? 'success' : 'warning'" :stroke-width="10" />
+            <div class="loadrows">
+              <button
+                v-for="(d, i) in dirs"
+                :key="d[0]"
+                :class="{ chosen: focus === i }"
+                @click="focus = i"
+              >
+                <span class="letter">{{ d[0] }}</span
+                ><strong>{{ d[1] }}进口</strong
+                ><span class="track"
+                  ><i
+                    :style="{
+                      width: `${(100 * (totals[i] ?? 0)) / Math.max(1, ...totals.map((v) => v ?? 0))}%`,
+                    }" /></span
+                ><b>{{ totals[i] ?? "—" }} <small>辆</small></b>
+              </button>
             </div>
-            <div class="queue-row">
-              <div class="q-label">南进口 (直行)</div>
-              <el-progress :percentage="getLightColor('south') === 'green' ? 30 : 82" :status="getLightColor('south') === 'green' ? 'success' : 'exception'" :stroke-width="10" />
+            <div class="trafficfoot">
+              {{ dirs[focus]![1] }}进口明细 <i>/</i> 直行
+              {{ count(focus, "through") ?? "—" }} 辆 <i>·</i> 左转
+              {{ count(focus, "left") ?? "—" }} 辆
             </div>
-            <div class="queue-row">
-              <div class="q-label">东进口 (左转/直行)</div>
-              <el-progress :percentage="getLightColor('east') === 'green' ? 20 : 65" :status="getLightColor('east') === 'green' ? 'success' : 'warning'" :stroke-width="10" />
+          </section>
+          <section class="card events">
+            <div class="cardhead">
+              <div class="titlegroup">
+                <span class="tile gold"><Document /></span>
+                <div>
+                  <small>EVENT FEED</small>
+                  <h2>边缘事件流</h2>
+                </div>
+              </div>
+              <button class="more" @click="section('事件记录')">
+                查看全部 <ArrowRight />
+              </button>
             </div>
-            <div class="queue-row">
-              <div class="q-label">西进口 (左转/直行)</div>
-              <el-progress :percentage="getLightColor('west') === 'green' ? 15 : 55" :status="getLightColor('west') === 'green' ? 'success' : 'warning'" :stroke-width="10" />
+            <div
+              v-for="e in events.slice(0, 4)"
+              :key="e.ts + e.type"
+              class="event"
+            >
+              <time>{{ fmt(e.ts) }}</time
+              ><span :class="['eventtype', e.type]">{{
+                evNames[e.type] ?? e.type
+              }}</span
+              ><strong>{{ eventText(e) }}</strong>
             </div>
+            <div v-if="!events.length" class="empty">
+              尚未收到边缘变化事件；没有事件不代表感知离线。
+            </div>
+          </section>
+        </div>
+        <footer>
+          SIGNAL DESK <i>/</i> 只读监测
+          <span>{{
+            demo
+              ? "DEMO · 本地演示，非现场数据"
+              : "EDGE TELEMETRY · MQTT → Redis → Web"
+          }}</span>
+        </footer>
+      </main>
+    </div>
+    <div v-if="panel" class="veil" @click.self="close">
+      <section
+        class="modal card"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="panel"
+      >
+        <div class="cardhead">
+          <div>
+            <small>OPERATIONS INSPECTOR</small>
+            <h2>{{ panel }}</h2>
           </div>
-        </el-card>
-      </div>
+          <button @click="close" aria-label="关闭"><Close /></button>
+        </div>
+        <template v-if="panel === '事件记录'"
+          ><select v-model="filter" aria-label="筛选事件">
+            <option value="all">全部事件</option>
+            <option v-for="(n, k) in evNames" :key="k" :value="k">
+              {{ n }}
+            </option>
+          </select>
+          <div v-for="e in filtered" :key="e.ts + e.type" class="event">
+            <time>{{ fmt(e.ts) }}</time
+            ><span class="eventtype">{{ evNames[e.type] }}</span
+            ><strong>{{ eventText(e) }}</strong
+            ><small>#{{ e.tick ?? "—" }}</small>
+          </div>
+          <p v-if="!filtered.length">暂无匹配事件。</p></template
+        ><template v-else
+          ><p>
+            {{
+              demo
+                ? "本页为演示回放：只用本地样例，不访问设备或后端。"
+                : "此页消费云端已有 MQTT 遥测，不向 GD32 下发指令。"
+            }}
+          </p>
+          <dl>
+            <dt>数据链路</dt>
+            <dd>{{ connection }}</dd>
+            <dt>当前灯色依据</dt>
+            <dd>{{ demo ? "样例" : sig.source }}</dd>
+            <dt>最近感知上报</dt>
+            <dd>{{ fmt(f.ts) }}</dd>
+            <dt>上报至接收时差¹</dt>
+            <dd>{{ latency ?? "—" }} ms</dd>
+            <dt>最近事件 Tick</dt>
+            <dd>{{ realTick ?? "—" }}</dd>
+            <dt>降级状态</dt>
+            <dd>{{ f.degradation ?? "—" }}</dd>
+          </dl>
+          <p>
+            ¹ 需要服务器与边缘主机校时，不是网络 RTT。4
+            秒无新鲜样本会标记过期；策略建议不会直接点亮绿灯。
+          </p>
+          <button v-if="demo" @click="router.push('/dashboard')">
+            前往现场监测 <ArrowRight /></button
+          ><button v-else @click="logout">
+            <SwitchButton /> 退出登录
+          </button></template
+        >
+      </section>
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { trafficApi, type RealtimeState } from '../api/traffic'
-
-const selectedJunction = ref('mini_1')
-const currentTime = ref('')
-let timer: any = null
-let clockTimer: any = null
-
-const junctionList = ref([
-  { id: 'mini_1', name: 'mini_1 (边缘端智能机)' },
-  { id: 'INT_001', name: 'INT_001 (中山路与解放路)' },
-  { id: 'INT_002', name: 'INT_002 (建设大道与科技路)' }
-])
-
-const twinState = ref<Partial<RealtimeState>>({})
-
-const trafficMetrics = reactive({
-  vehicleCount: 152,
-  avgSpeed: 41.2,
-  delayTime: 16.5,
-  level: '畅通'
-})
-
-const alerts = ref<any[]>([])
-
-const directions = ['north', 'east', 'south', 'west'] as const
-type Direction = typeof directions[number]
-const names = { north: '北', east: '东', south: '南', west: '西' }
-const getLightColor = (direction: Direction) =>
-  twinState.value.signal_colors?.[`${direction}_through`] ?? 'unknown'
-const signalDescription = computed(() => {
-  for (const direction of directions) {
-    const color = getLightColor(direction)
-    if (color === 'green') return `${names[direction]}进口绿灯放行`
-    if (color === 'yellow') return `${names[direction]}进口黄灯清空`
-  }
-  return directions.every(d => getLightColor(d) === 'red') ? '四向全红' : '灯态未知 · 等待有效遥测'
-})
-
-const getModeTagType = (mode: string = '') => {
-  const m = mode.toLowerCase()
-  if (m === 'normal') return 'success'
-  if (m === 'all_red') return 'danger'
-  if (m === 'clearance') return 'warning'
-  return 'info'
-}
-
-const updateClock = () => {
-  currentTime.value = new Date().toLocaleTimeString()
-}
-
-// 核心拉取函数：安全健壮解析
-let generation = 0
-let requestId = 0
-let applied = 0
-const fetchAllData = async () => {
-  const gen = generation, id = ++requestId, junction = selectedJunction.value
-  try {
-    const resState: any = await trafficApi.getJunctionRealtimeState(junction)
-    if (gen !== generation || id < applied) return
-    applied = id
-    const stateData = resState?.data?.data || resState?.data || resState
-    if (stateData && typeof stateData === 'object') {
-      twinState.value = stateData.junction_id === junction ? stateData : {}
-    }
-
-    const resMetrics: any = await trafficApi.getRealtimeData(junction)
-    if (gen !== generation) return
-    const metricData = resMetrics?.data?.data || resMetrics?.data || resMetrics
-    if (metricData && typeof metricData === 'object') {
-      Object.assign(trafficMetrics, metricData)
-    }
-
-    const resAlerts: any = await trafficApi.getAlerts(junction)
-    if (gen !== generation) return
-    const alertList = resAlerts?.data?.data || resAlerts?.data || resAlerts
-    if (Array.isArray(alertList)) {
-      alerts.value = alertList
-    }
-  } catch (error) {
-    if (gen === generation && id > applied) {
-      applied = id
-      twinState.value = {}
-    }
-    console.error('拉取数字孪生数据异常:', error)
-  }
-}
-
-const handleJunctionChange = () => {
-  generation++
-  twinState.value = {}
-  fetchAllData()
-}
-
-onMounted(() => {
-  updateClock()
-  clockTimer = setInterval(updateClock, 1000)
-  fetchAllData()
-  // 500ms 高频刷新，与边缘端 MQTT 同步
-  timer = setInterval(fetchAllData, 500)
-})
-
-onUnmounted(() => {
-  generation++
-  if (timer) clearInterval(timer)
-  if (clockTimer) clearInterval(clockTimer)
-})
-</script>
-
-<style scoped>
-.twin-container {
-  padding: 16px;
-  background-color: #080d1a;
-  min-height: calc(100vh - 60px);
-  color: #e2e8f0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-/* 顶部 Header */
-.twin-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 20px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(0, 229, 255, 0.25);
-  border-radius: 8px;
-  margin-bottom: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.live-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #00ff88;
-  box-shadow: 0 0 10px #00ff88;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
-  70% { transform: scale(1.15); box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
-}
-
-.system-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #00e5ff;
-  letter-spacing: 0.5px;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.junction-select {
-  width: 240px;
-}
-
-.clock-display {
-  font-family: monospace;
-  font-size: 15px;
-  color: #94a3b8;
-}
-
-/* 三栏布局 */
-.twin-grid {
-  display: grid;
-  grid-template-columns: 340px 1fr 340px;
-  gap: 16px;
-}
-
-.tech-card {
-  background: rgba(15, 23, 42, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  color: #fff !important;
-  border-radius: 8px;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #00e5ff;
-}
-
-.justify-between {
-  justify-content: space-between;
-  width: 100%;
-}
-
-.phase-banner {
-  font-size: 13px;
-  color: #94a3b8;
-}
-
-.glow-text {
-  color: #00ff88;
-}
-
-/* 左侧遥测数据 */
-.telemetry-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.tele-item {
-  background: rgba(0, 0, 0, 0.35);
-  padding: 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.tele-title {
-  font-size: 12px;
-  color: #94a3b8;
-}
-
-.tele-value {
-  font-size: 22px;
-  font-weight: bold;
-  margin: 6px 0;
-}
-
-.glow-green {
-  color: #00ff88;
-  text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
-}
-
-.tick-num {
-  color: #38bdf8;
-  font-family: monospace;
-}
-
-.tele-desc {
-  font-size: 11px;
-  color: #64748b;
-}
-
-.tele-tag-box {
-  margin: 6px 0;
-}
-
-/* 感知指标 */
-.metric-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.m-card {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 12px;
-  border-radius: 6px;
-  text-align: center;
-}
-
-.m-num {
-  font-size: 22px;
-  font-weight: bold;
-  color: #f8fafc;
-}
-
-.m-num small {
-  font-size: 12px;
-  color: #94a3b8;
-}
-
-.m-label {
-  font-size: 12px;
-  color: #64748b;
-  margin-top: 4px;
-}
-
-/* 中间沙盘 */
-.sandbox-card {
-  height: 590px;
-  position: relative;
-}
-
-.sandbox-canvas {
-  width: 100%;
-  height: 500px;
-  position: relative;
-  background: radial-gradient(circle at center, #131c31 0%, #080d1a 100%);
-  border-radius: 6px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-}
-
-/* 道路底座 */
-.crossroad-roadbed {
-  width: 320px;
-  height: 320px;
-  position: relative;
-  background: #1e293b;
-  border-radius: 8px;
-}
-
-/* 四个路口臂 */
-.road-arm {
-  position: absolute;
-  background: #1e293b;
-}
-
-.road-north {
-  top: -100px;
-  left: 90px;
-  width: 140px;
-  height: 100px;
-  border-left: 2px solid #475569;
-  border-right: 2px solid #475569;
-}
-
-.road-south {
-  bottom: -100px;
-  left: 90px;
-  width: 140px;
-  height: 100px;
-  border-left: 2px solid #475569;
-  border-right: 2px solid #475569;
-}
-
-.road-west {
-  left: -100px;
-  top: 90px;
-  width: 100px;
-  height: 140px;
-  border-top: 2px solid #475569;
-  border-bottom: 2px solid #475569;
-}
-
-.road-east {
-  right: -100px;
-  top: 90px;
-  width: 100px;
-  height: 140px;
-  border-top: 2px solid #475569;
-  border-bottom: 2px solid #475569;
-}
-
-.lane-divider-v {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  border-left: 2px dashed #eab308;
-}
-
-.lane-divider-h {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 2px;
-  border-top: 2px dashed #eab308;
-}
-
-/* 斑马线 */
-.zebra-stripe {
-  position: absolute;
-}
-.zebra-h {
-  width: 140px;
-  height: 14px;
-  background: repeating-linear-gradient(90deg, #fff 0, #fff 10px, transparent 10px, transparent 20px);
-}
-.top-zebra { bottom: 0; }
-.bottom-zebra { top: 0; }
-
-.zebra-v {
-  width: 14px;
-  height: 140px;
-  background: repeating-linear-gradient(0deg, #fff 0, #fff 10px, transparent 10px, transparent 20px);
-}
-.left-zebra { right: 0; }
-.right-zebra { left: 0; }
-
-/* 交叉中心环岛 */
-.intersection-center {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 130px;
-  height: 130px;
-  background: rgba(14, 165, 233, 0.15);
-  border: 2px solid #0284c7;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10;
-}
-
-.radar-scan {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 2px dashed rgba(56, 189, 248, 0.4);
-  animation: spin 10s linear infinite;
-}
-
-@keyframes spin {
-  100% { transform: rotate(360deg); }
-}
-
-.center-content {
-  text-align: center;
-}
-
-.junction-tag {
-  font-weight: bold;
-  font-size: 15px;
-  color: #f8fafc;
-}
-
-.junction-state-tag {
-  font-size: 11px;
-  color: #38bdf8;
-  margin-top: 2px;
-}
-
-/* 四向信号灯外观 */
-.signal-housing {
-  position: absolute;
-  z-index: 25;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.signal-north { top: 15px; }
-.signal-south { bottom: 15px; }
-.signal-west { left: 25px; flex-direction: row; }
-.signal-east { right: 25px; flex-direction: row; }
-
-.signal-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #cbd5e1;
-}
-
-.signal-frame {
-  background: #090d16;
-  padding: 6px 8px;
-  border-radius: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border: 2px solid #334155;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
-}
-
-.signal-frame.horizontal {
-  flex-direction: row;
-}
-
-.lamp {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  opacity: 0.15;
-  transition: all 0.2s ease-in-out;
-}
-
-.lamp.red { background: #ef4444; }
-.lamp.yellow { background: #eab308; }
-.lamp.green { background: #22c55e; }
-
-.lamp.red.lit {
-  opacity: 1;
-  box-shadow: 0 0 16px #ef4444, 0 0 4px #fff;
-}
-
-.lamp.yellow.lit {
-  opacity: 1;
-  box-shadow: 0 0 16px #eab308, 0 0 4px #fff;
-}
-
-.lamp.green.lit {
-  opacity: 1;
-  box-shadow: 0 0 16px #22c55e, 0 0 4px #fff;
-}
-
-/* 车流动画粒子 */
-.traffic-particle {
-  position: absolute;
-  width: 8px;
-  height: 16px;
-  background: #38bdf8;
-  border-radius: 3px;
-  box-shadow: 0 0 8px #38bdf8;
-}
-
-.particle-ns-1 {
-  left: 30px;
-  animation: moveNorthSouth 2s infinite linear;
-}
-.particle-sn-1 {
-  right: 30px;
-  animation: moveSouthNorth 2s infinite linear;
-}
-
-.particle-we-1 {
-  top: 30px;
-  width: 16px;
-  height: 8px;
-  animation: moveWestEast 2s infinite linear;
-}
-.particle-ew-1 {
-  bottom: 30px;
-  width: 16px;
-  height: 8px;
-  animation: moveEastWest 2s infinite linear;
-}
-
-@keyframes moveNorthSouth {
-  0% { top: -80px; opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { top: 400px; opacity: 0; }
-}
-
-@keyframes moveSouthNorth {
-  0% { bottom: -80px; opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { bottom: 400px; opacity: 0; }
-}
-
-@keyframes moveWestEast {
-  0% { left: -80px; opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { left: 400px; opacity: 0; }
-}
-
-@keyframes moveEastWest {
-  0% { right: -80px; opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { right: 400px; opacity: 0; }
-}
-
-/* 右侧告警与排队 */
-.alarm-flow-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.alarm-card {
-  background: rgba(239, 68, 68, 0.12);
-  border-left: 3px solid #ef4444;
-  padding: 8px 12px;
-  border-radius: 4px;
-}
-
-.alarm-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.alarm-tick {
-  font-size: 11px;
-  color: #94a3b8;
-  font-family: monospace;
-}
-
-.alarm-body {
-  font-size: 12px;
-  color: #f1f5f9;
-  margin-top: 4px;
-}
-
-.no-alarm {
-  padding: 24px 0;
-  text-align: center;
-  font-size: 12px;
-  color: #64748b;
-}
-
-.queue-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.queue-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.q-label {
-  font-size: 12px;
-  color: #94a3b8;
-}
-
-.mt-3 { margin-top: 14px; }
-</style>
+<style src="../desk/desk.css" scoped></style>
+<style src="../terrain/workbench.css" scoped></style>
